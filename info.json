@@ -1,0 +1,10 @@
+{
+	"name": "undergroundexpansion",
+	"version": "0.0.1",
+	"title": "UndergroundExpansion",
+	"author": "ZpmFred",
+	"description": "Expand your base in the underground",
+	"homepage": "TODO",
+	"factorio_version": "0.14",
+	"dependencies": ["base >= 0.14.0"]
+}
