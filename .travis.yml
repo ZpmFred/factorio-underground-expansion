@@ -1,4 +1,6 @@
 language: python
 sudo: false
 
-script: ./build.sh
+script: 
+  - chmod u+x ./build.sh
+  - ./build.sh
