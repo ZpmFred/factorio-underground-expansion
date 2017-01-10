@@ -1,6 +1,17 @@
 language: python
 sudo: false
-
-script: 
-  - chmod u+x ./build.sh
-  - ./build.sh
+script:
+- chmod u+x ./build.sh
+- "./build.sh"
+before_deploy:
+  - export RELEASE_NAME=$(python getFolderName.py)
+  - echo "deploying $RELEASE_NAME to GitHub releases"
+deploy:
+  provider: releases
+  api_key:
+    secure: Q78+xqwdhO2kzOxzeAi2IAFm+Fna4DDT7BrPQjDFeQRKAxhnEjKDIGB3Gmtg3VgLaJSW8eaG6MbmpexMkwBPkHtP2CaiUwMuV5Wopqn2boKyIvTmMdb+AbicvZge8I/26gGp4YM//uTj9Nu71p2SkTCZeb5PcWqCkiQ2cEosehfg4ahMlxxSEgrkq/ZRP+lEx9pzLWTwK8YTMP/uyt68FF0dF9U7gF8IXDZzxk38YkLARncMMXaqAk3BHv5wBLXJSWpzwf2Zpxs7r6fWern0DY2mpyqmlll6/dsZN2rMXLzgERF+Z56STON40hbld+4OmqajNhLZEBfNAKPTiLTr4OA6YsE7CzbNZ9kMh/JsBrrAwUCo9/o/Z7DOtNFsm0mwKVycLbqUprBdhZYbRapQqZXzyc4zmfgxkhPbLK2+omEO/2muvw8Z6ZQqHBlR73LoUdjdpBY5oYOhvdp1ToGnQvnpIUeLIeRKY01qpBDhQcpprG0RvFmhuL54/AVf4t/sAnWMndsfBxeNLQ1k0G4btjMVWo7XP1GIkLtDGHYJYBlCA9CWfZLL067oyy0VnTAG0arPSviOo6mEB5LST0nslUGf1Ia0Lvr8I3PCJfiklUfv0p+TC3mVb/Ch1UJebCMTXdNbCRf8L5ETAEwLhRgEyhd1IHKMdIbmWlKnKrrkYp8=
+  file_glob: true
+  file: "build/${RELEASE_NAME}.zip"
+  skip_cleanup: true
+  on:
+    tags: true
