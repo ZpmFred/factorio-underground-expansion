@@ -3,62 +3,69 @@ data:extend(
         {
             type = "tile",
             name = "underground-rock",
-            collision_mask =
-            {
-                "water-tile", --marking as "water-tile" so "stones" and "concrete" can not be placed on it.
-                "floor-layer", --marking as "floor-layer" so "landfill" can not be placed on it, (landfill is modified by the modify script to add this condition)
-                "item-layer",
-                "resource-layer",
-                "player-layer",
-                "doodad-layer"
-            },
-            layer = 40,
+            collision_mask = {"ground-tile"},
+            layer = 36,
             variants =
             {
                 main =
                 {
                     {
-                        picture = "__undergroundexpension__/graphics/terrain/space1.png",
+                        picture = "__undergroundexpansion__/graphics/terrain/underground-rock/underground-rock1.png",
                         count = 16,
                         size = 1
                     },
                     {
-                        picture = "__undergroundexpension__/graphics/terrain/space2.png",
-                        count = 4,
+                        picture = "__undergroundexpansion__/graphics/terrain/underground-rock/underground-rock2.png",
+                        count = 16,
                         size = 2,
                         probability = 0.39,
+                        weights = {0.025, 0.010, 0.013, 0.025, 0.025, 0.100, 0.100, 0.005, 0.010, 0.010, 0.005, 0.005, 0.001, 0.015, 0.020, 0.020}
                     },
                     {
-                        picture = "__undergroundexpension__/graphics/terrain/space4.png",
-                        count = 4,
+                        picture = "__undergroundexpansion__/graphics/terrain/underground-rock/underground-rock4.png",
+                        count = 22,
+                        line_length = 11,
                         size = 4,
                         probability = 1,
+                        weights = {0.090, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.025, 0.125, 0.005, 0.010, 0.100, 0.100, 0.010, 0.020, 0.020, 0.010, 0.100, 0.025, 0.100, 0.100, 0.100}
                     },
                 },
                 inner_corner =
                 {
-                    picture = "__base__/graphics/terrain/out-of-map-inner-corner.png",
-                    count = 0
+                    picture = "__undergroundexpansion__/graphics/terrain/underground-rock/underground-rock-inner-corner.png",
+                    count = 8
                 },
                 outer_corner =
                 {
-                    picture = "__base__/graphics/terrain/out-of-map-outer-corner.png",
-                    count = 0
+                    picture = "__undergroundexpansion__/graphics/terrain/underground-rock/underground-rock-outer-corner.png",
+                    count = 8
                 },
                 side =
                 {
-                    picture = "__base__/graphics/terrain/out-of-map-side.png",
-                    count = 0
+                    picture = "__undergroundexpansion__/graphics/terrain/underground-rock/underground-rock-side.png",
+                    count = 8
                 }
             },
-            ageing = 0,
-            map_color = {r = 87, g = 65, b = 47},
-            mineable_properties = {
-                minable = true,
-                hardness = 1.0,
-                miningtime = 1.0,
-                products:[]
-            }
+            walking_sound =
+            {
+                {
+                    filename = "__base__/sound/walking/sand-01.ogg",
+                    volume = 0.8
+                },
+                {
+                    filename = "__base__/sound/walking/sand-02.ogg",
+                    volume = 0.8
+                },
+                {
+                    filename = "__base__/sound/walking/sand-03.ogg",
+                    volume = 0.8
+                },
+                {
+                    filename = "__base__/sound/walking/sand-04.ogg",
+                    volume = 0.8
+                }
+            },
+            map_color={r=139, g=104, b=39},
         }
     }
 )
