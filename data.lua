@@ -1,3 +1,6 @@
+require("stdlib.table")
+
 require("prototypes.entity")
 require("prototypes.item")
-require("prototypes.tile")
+require("prototypes.recipe")
+--require("prototypes.tile")
