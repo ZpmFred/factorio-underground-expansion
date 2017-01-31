@@ -23,7 +23,7 @@ script.on_event("enter-tunnel", function(event)
     player.print("---")
 
     if entity and isTunnel(entity) and Position.distance(entity.position, player.position) < 3 then
-        if isTunnelOutputChunkGenerated(entity) then
+        if isTunnelOutputAreaGenerated(entity) then
             if createTunnelCounterpart(entity) then
                 player.teleport(player.position, getTunnelCounterpartSurface(entity))
             else
@@ -91,8 +91,19 @@ function generateBelowChunkFromDownTunnel(entity)
         createNewUndergroundSurface(surfaceName)
     end
 
-    -- generation du chunk
-    game.surfaces[surfaceName].request_to_generate_chunks(entity.position, 2)
+    local tunnelCaveDescriptor = getTunnelCaveDescriptor(entity.position)
+    local caveArea = tunnelCaveDescriptor.outerCaveArea
+    local areaSize = Area.offset(table.deepcopy(caveArea), {x = -caveArea.left_top.x, y = -caveArea.left_top.y}).right_bottom
+
+    for x=0, math.floor(areaSize.x / 32) do
+        for y=0, math.floor(areaSize.y / 32) do
+            local areaPos = table.deepcopy(entity.position)
+            areaPos.x = areaPos.x + x * 32
+            areaPos.y = areaPos.y + y * 32
+
+            game.surfaces[surfaceName].request_to_generate_chunks(areaPos, 2)
+        end
+    end
 end
 
 -- generating the surface above the up tunnel
@@ -101,17 +112,42 @@ function generateAboveChunkFromUpTunnel(entity)
 
     if surfaceName then
 
-        -- generation du chunk
-        game.surfaces[surfaceName].request_to_generate_chunks(entity.position, 2)
+        local tunnelCaveDescriptor = getTunnelCaveDescriptor(entity.position)
+        local caveArea = tunnelCaveDescriptor.outerCaveArea
+        local areaSize = Area.offset(table.deepcopy(caveArea), {x = -caveArea.left_top.x, y = -caveArea.left_top.y}).right_bottom
+
+        for x=0, math.floor(areaSize.x / 32) do
+            for y=0, math.floor(areaSize.y / 32) do
+                local areaPos = table.deepcopy(entity.position)
+                areaPos.x = areaPos.x + x * 32
+                areaPos.y = areaPos.y + y * 32
+
+                game.surfaces[surfaceName].request_to_generate_chunks(areaPos, 2)
+            end
+        end
     end
 end
 
--- check if the other side chunk of the tunnel has been generated 
-function isTunnelOutputChunkGenerated(tunnel)
+-- check if the other side chunks of the tunnel has been generated 
+function isTunnelOutputAreaGenerated(tunnel)
     local surface = getTunnelCounterpartSurface(tunnel)
 
-    if surface then
-        return surface.is_chunk_generated(Chunk.from_position(tunnel.position))
+    if surface then        
+        local tunnelCaveDescriptor = getTunnelCaveDescriptor(tunnel.position)
+        local caveArea = tunnelCaveDescriptor.outerCaveArea
+        local areaSize = Area.offset(table.deepcopy(caveArea), {x = -caveArea.left_top.x, y = -caveArea.left_top.y}).right_bottom
+        local allChunkGenerated = true
+
+        for x=0, math.floor(areaSize.x / 32) do
+            for y=0, math.floor(areaSize.y / 32) do
+                local areaPos = table.deepcopy(tunnel.position)
+                areaPos.x = math.floor(areaPos.x) + x * 32
+                areaPos.y = math.floor(areaPos.y) + y * 32
+
+                allChunkGenerated = allChunkGenerated and surface.is_chunk_generated(Chunk.from_position(areaPos))
+            end
+        end 
+        return allChunkGenerated
     else
         return nil
     end
@@ -141,14 +177,84 @@ function createTunnelCounterpart(tunnel)
             tunnelEntityName = "down-tunnel"
         end
 
+        if isSurfaceUnderground(surface) then
+            createTunnelCave(surface, tunnel.position)
+        end
         if surface.can_place_entity{name = tunnelEntityName, position = tunnel.position, force = "player"} then
-            surface.create_entity{name = tunnelEntityName, position = tunnel.position, force = "player"}
+            local tunnel = surface.create_entity{name = tunnelEntityName, position = tunnel.position, force = "player"}
         else 
             return false
         end
     end
 
     return true
+end
+
+function createTunnelCave(surface, position)
+    local caveDescriptor = getTunnelCaveDescriptor(position)
+    local tunnelCaveDescriptorList = getAboveAndBelowTunnelCaveDescriptorOverlappingArea(surface, caveDescriptor.outerCaveArea)
+
+    -- for key, tunnelCaveDescriptor in ipairs(tunnelCaveDescriptorList) do
+    --     game.print("inner left_top" .. Position.tostring(tunnelCaveDescriptor.innerCaveArea["left_top"]))
+    --     game.print("inner right_bottom" .. Position.tostring(tunnelCaveDescriptor.innerCaveArea["right_bottom"]))
+    --     game.print("outer left_top" .. Position.tostring(tunnelCaveDescriptor.outerCaveArea["left_top"]))
+    --     game.print("outer right_bottom" .. Position.tostring(tunnelCaveDescriptor.outerCaveArea["right_bottom"]))
+    -- end
+
+    -- clean cave walls
+    for i, rock in ipairs(Surface.find_all_entities({name = "border-rock", surface = surface.name, area = caveDescriptor.innerCaveArea})) do
+        rock.destroy()
+    end
+
+    -- generate cave tile
+    local tiles = {}
+    for x=caveDescriptor.outerCaveArea.left_top.x, caveDescriptor.outerCaveArea.right_bottom.x do
+        for y=caveDescriptor.outerCaveArea.left_top.y, caveDescriptor.outerCaveArea.right_bottom.y do
+            local pos = {x, y}
+
+            -- si on doit metre un rock tile
+            if table.any(tunnelCaveDescriptorList, function (v, k, pos) return isTunnelCaveDescriptorRockTile(v, pos) end, pos) then
+                table.insert(tiles, {name="underground-rock", position=pos})
+            end
+        end
+    end
+    surface.set_tiles(tiles)
+
+    -- generate cave entity
+    for x=caveDescriptor.outerCaveArea.left_top.x, caveDescriptor.outerCaveArea.right_bottom.x do
+        for y=caveDescriptor.outerCaveArea.left_top.y, caveDescriptor.outerCaveArea.right_bottom.y do
+            local pos = {x, y}
+            local entity = surface.find_entity("border-rock", pos)
+            local isRockBorder = false
+            local isRockTileAlone = false
+
+            -- entity type of this tile
+            for key, tunnelCaveDescriptor in ipairs(tunnelCaveDescriptorList) do
+                isRockTileAlone = isRockTileAlone or (
+                    isTunnelCaveDescriptorRockTile(tunnelCaveDescriptor, pos) 
+                    and not isTunnelCaveDescriptorRockBorder(tunnelCaveDescriptor, pos)
+                )
+
+                isRockBorder = isRockBorder or (
+                    isTunnelCaveDescriptorRockTile(tunnelCaveDescriptor, pos) 
+                    and isTunnelCaveDescriptorRockBorder(tunnelCaveDescriptor, pos)
+                )
+            end
+
+            -- rock creation
+            if isRockBorder and not isRockTileAlone then
+                -- game.print("rock: " .. Position.tostring(pos))
+                -- game.print(Area.tostring(event.area))
+                surface.create_entity{name = "border-rock", position = pos, force = "neutral"}
+            else
+                if entity and isRockTileAlone then
+                    --entity.destroy()
+                end
+            end
+
+        end
+    end
+
 end
 
 -- check if the tunnel has an counterpart tunnel
@@ -284,7 +390,7 @@ function getTunnelCaveDescriptor(pos)
     local tunnelCaveDescriptor = {}
     tunnelCaveDescriptor.tunnelPos = pos
     tunnelCaveDescriptor.isDownTunnel = nil
-    tunnelCaveDescriptor.innerCaveArea = Area.expand(Area.construct(pos.x - 0.5, pos.y - 0.5, pos.x - 0.5, pos.y - 0.5), underexp.tunnelCaveSize)
+    tunnelCaveDescriptor.innerCaveArea = Area.expand(Area.construct(math.floor(pos.x), math.floor(pos.y), math.floor(pos.x), math.floor(pos.y)), underexp.tunnelCaveSize)
     tunnelCaveDescriptor.outerCaveArea = Area.expand(tunnelCaveDescriptor.innerCaveArea, 1)
 
     return tunnelCaveDescriptor
@@ -335,6 +441,8 @@ function undergroundChunkGenerationEvent(event)
     -- generating only underground surfaces
     if not isSurfaceUnderground(event.surface) then return end
 
+    game.print("chunkGenerate " .. Area.tostring(event.area))
+
     -- clear all the entity
     for i, entity in ipairs(event.surface.find_entities(event.area)) do
         if entity.type ~= "player" then
@@ -342,58 +450,15 @@ function undergroundChunkGenerationEvent(event)
         end
     end
 
-    local tunnelCaveDescriptorList = getAboveAndBelowTunnelCaveDescriptorOverlappingArea(event.surface, event.area)
-
-    for key, tunnelCaveDescriptor in ipairs(tunnelCaveDescriptorList) do
-        game.print(Position.tostring(tunnelCaveDescriptor.innerCaveArea["left_top"]))
-        game.print(Position.tostring(tunnelCaveDescriptor.innerCaveArea["right_bottom"]))
-        game.print(Position.tostring(tunnelCaveDescriptor.outerCaveArea["left_top"]))
-        game.print(Position.tostring(tunnelCaveDescriptor.outerCaveArea["right_bottom"]))
-    end
-
     -- fill the chuck tiles
     local tiles = {}
-    for x=event.area.left_top.x, event.area.right_bottom.x do
-        for y=event.area.left_top.y, event.area.right_bottom.y do
+    for x=event.area.left_top.x - 1, event.area.right_bottom.x do
+        for y=event.area.left_top.y - 1, event.area.right_bottom.y do
             local pos = {x, y}
-
-            -- si on doit metre un rock tile
-            if table.any(tunnelCaveDescriptorList, function (v, k, pos) return isTunnelCaveDescriptorRockTile(v, pos) end, pos) then
-                table.insert(tiles, {name="underground-rock", position=pos})
-            else
-                table.insert(tiles, {name="out-of-map", position=pos})
-            end
+            table.insert(tiles, {name="out-of-map", position=pos})
         end
     end
     event.surface.set_tiles(tiles)
-
-    -- fill the entity
-    for x=event.area.left_top.x, event.area.right_bottom.x do
-        for y=event.area.left_top.y, event.area.right_bottom.y do
-            local pos = {x, y}
-            local isRockBorder = false
-            local isRockTileAlone = false
-
-            -- entity type of this tile
-            for key, tunnelCaveDescriptor in ipairs(tunnelCaveDescriptorList) do
-                isRockTileAlone = isRockTileAlone or (
-                    isTunnelCaveDescriptorRockTile(tunnelCaveDescriptor, pos) 
-                    and not isTunnelCaveDescriptorRockBorder(tunnelCaveDescriptor, pos)
-                )
-
-                isRockBorder = isRockBorder or (
-                    isTunnelCaveDescriptorRockTile(tunnelCaveDescriptor, pos) 
-                    and isTunnelCaveDescriptorRockBorder(tunnelCaveDescriptor, pos)
-                )
-            end
-
-            -- rock creation
-            if isRockBorder and not isRockTileAlone then
-                game.print("rock: " .. Position.tostring(pos))
-                event.surface.create_entity{name = "border-rock", position = pos, force = "neutral"}
-            end
-        end
-    end
 
 end
 

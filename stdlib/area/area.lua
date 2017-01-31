@@ -240,5 +240,10 @@ function Area.to_table(area_arr)
     return area_arr
 end
 
+function Area.tostring(area)
+    fail_if_missing(area, "missing area value")
+    return "Area: {{".. area.left_top.x .. ", " .. area.left_top.y .."}, {" .. area.right_bottom.x .. ", " .. area.right_bottom.y .. "}}"
+end
+
 
 return Area
