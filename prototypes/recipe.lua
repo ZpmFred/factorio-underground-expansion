@@ -7,7 +7,7 @@ data:extend({
 		{
 			{"iron-plate", 5}
 		},
-		energy_required = 30,
+		energy_required = 5,
 		result = "down-tunnel",
 		requester_paste_multiplier = 1
 	}
@@ -22,7 +22,7 @@ data:extend({
 		{
 			{"iron-plate", 5}
 		},
-		energy_required = 30,
+		energy_required = 5,
 		result = "up-tunnel",
 		requester_paste_multiplier = 1
 	}

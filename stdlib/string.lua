@@ -27,8 +27,10 @@ end
 --- Tests if a string contains a given substring
 -- @param s the string to check for the substring
 -- @param ends the substring to test for
+-- @param pattern whether to interpret the ends as a lua pattern or plaintext for the string contains
 -- @return true if the substring was found in the string
-function string.contains(s, ends)
+function string.contains(s, ends, pattern)
+    local ends = not pattern and string.gsub(ends, "([^%w])", "%%%1") or ends
     return s and string.find(s, ends) ~= nil
 end
 
@@ -52,7 +54,7 @@ function string.split(s, sep, pattern)
     sep = not pattern and string.gsub(sep, "([^%w])", "%%%1") or sep
 
     local fields = {}
-    local start_idx, end_idx = string.find(s, sep)
+    local start_idx, end_idx = string.find(s, sep, 1)
     local last_find = 1
     local len = string.len(sep)
     while start_idx do

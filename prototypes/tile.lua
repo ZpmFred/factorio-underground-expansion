@@ -66,6 +66,7 @@ data:extend(
                 }
             },
             map_color={r=139, g=104, b=39},
+            ageing=0
         }
     }
 )
