@@ -51,6 +51,18 @@ end)
 
 
 
+-- ########################################################################
+-- ######################### TUNNELS CONTROLS #############################
+-- ########################################################################
+
+-- on tunnel pickup repome counterpart tunnel
+function onTunnelPickup(tunnel)
+    if isTunnel(tunnel) and isTunnelCounterpartGenerated(tunnel) then
+        local counterpartSurface = getTunnelCounterpartSurface(tunnel)
+    end
+
+end
+
 
 -- ########################################################################
 -- ######################### TUNNELS UTILS ################################
@@ -91,19 +103,7 @@ function generateBelowChunkFromDownTunnel(entity)
         createNewUndergroundSurface(surfaceName)
     end
 
-    local tunnelCaveDescriptor = getTunnelCaveDescriptor(entity.position)
-    local caveArea = tunnelCaveDescriptor.outerCaveArea
-    local areaSize = Area.offset(table.deepcopy(caveArea), {x = -caveArea.left_top.x, y = -caveArea.left_top.y}).right_bottom
-
-    for x=0, math.floor(areaSize.x / 32) do
-        for y=0, math.floor(areaSize.y / 32) do
-            local areaPos = table.deepcopy(entity.position)
-            areaPos.x = areaPos.x + x * 32
-            areaPos.y = areaPos.y + y * 32
-
-            game.surfaces[surfaceName].request_to_generate_chunks(areaPos, 2)
-        end
-    end
+    generateCaveChunk(game.surfaces[surfaceName], entity.position)
 end
 
 -- generating the surface above the up tunnel
@@ -111,21 +111,33 @@ function generateAboveChunkFromUpTunnel(entity)
     local surfaceName = getAboveSurfaceName(entity.surface.name)
 
     if surfaceName then
+        generateCaveChunk(game.surfaces[surfaceName], entity.position)
+    end
+end
 
-        local tunnelCaveDescriptor = getTunnelCaveDescriptor(entity.position)
-        local caveArea = tunnelCaveDescriptor.outerCaveArea
-        local areaSize = Area.offset(table.deepcopy(caveArea), {x = -caveArea.left_top.x, y = -caveArea.left_top.y}).right_bottom
+-- create the tunnel counterpart tunnel return false if the destination is obstructed
+function createTunnelCounterpart(tunnel)
+    local surface = getTunnelCounterpartSurface(tunnel)
 
-        for x=0, math.floor(areaSize.x / 32) do
-            for y=0, math.floor(areaSize.y / 32) do
-                local areaPos = table.deepcopy(entity.position)
-                areaPos.x = areaPos.x + x * 32
-                areaPos.y = areaPos.y + y * 32
+    if surface and not isTunnelCounterpartGenerated(tunnel) then
+        local tunnelEntityName = nil
+        if isDownTunnel(tunnel) then
+            tunnelEntityName = "up-tunnel"
+        elseif isUpTunnel(tunnel) then
+            tunnelEntityName = "down-tunnel"
+        end
 
-                game.surfaces[surfaceName].request_to_generate_chunks(areaPos, 2)
-            end
+        if isSurfaceUnderground(surface) then
+            createTunnelCave(surface, tunnel.position)
+        end
+        if surface.can_place_entity{name = tunnelEntityName, position = tunnel.position, force = "player"} then
+            local tunnel = surface.create_entity{name = tunnelEntityName, position = tunnel.position, force = "player"}
+        else 
+            return false
         end
     end
+
+    return true
 end
 
 -- check if the other side chunks of the tunnel has been generated 
@@ -165,31 +177,43 @@ function getTunnelCounterpartSurface(tunnel)
     return surface
 end
 
--- create the tunnel counterpart tunnel return false if the destination is obstructed
-function createTunnelCounterpart(tunnel)
+-- check if the tunnel has an counterpart tunnel
+function isTunnelCounterpartGenerated(tunnel)
     local surface = getTunnelCounterpartSurface(tunnel)
 
-    if surface and not isTunnelCounterpartGenerated(tunnel) then
-        local tunnelEntityName = nil
+    if surface then
         if isDownTunnel(tunnel) then
-            tunnelEntityName = "up-tunnel"
+            return surface.find_entity("up-tunnel", tunnel.position)
         elseif isUpTunnel(tunnel) then
-            tunnelEntityName = "down-tunnel"
-        end
-
-        if isSurfaceUnderground(surface) then
-            createTunnelCave(surface, tunnel.position)
-        end
-        if surface.can_place_entity{name = tunnelEntityName, position = tunnel.position, force = "player"} then
-            local tunnel = surface.create_entity{name = tunnelEntityName, position = tunnel.position, force = "player"}
-        else 
-            return false
+            return surface.find_entity("down-tunnel", tunnel.position)
         end
     end
 
-    return true
+    return false
 end
 
+-- ########################################################################
+-- ######################### CAVE GENERATION ##############################
+-- ########################################################################
+
+-- generate chunk for a cave on a specified surface
+function generateCaveChunk(surface, position)
+    local tunnelCaveDescriptor = getTunnelCaveDescriptor(position)
+    local caveArea = tunnelCaveDescriptor.outerCaveArea
+    local areaSize = Area.offset(table.deepcopy(caveArea), {x = -caveArea.left_top.x, y = -caveArea.left_top.y}).right_bottom
+
+    for x=0, math.floor(areaSize.x / 32) do
+        for y=0, math.floor(areaSize.y / 32) do
+            local areaPos = table.deepcopy(position)
+            areaPos.x = areaPos.x + x * 32
+            areaPos.y = areaPos.y + y * 32
+
+            surface.request_to_generate_chunks(areaPos, 2)
+        end
+    end
+end
+
+-- create a cave on "surface" at "position"
 function createTunnelCave(surface, position)
     local caveDescriptor = getTunnelCaveDescriptor(position)
     local tunnelCaveDescriptorList = getAboveAndBelowTunnelCaveDescriptorOverlappingArea(surface, caveDescriptor.outerCaveArea)
@@ -255,21 +279,6 @@ function createTunnelCave(surface, position)
         end
     end
 
-end
-
--- check if the tunnel has an counterpart tunnel
-function isTunnelCounterpartGenerated(tunnel)
-    local surface = getTunnelCounterpartSurface(tunnel)
-
-    if surface then
-        if isDownTunnel(tunnel) then
-            return surface.find_entity("up-tunnel", tunnel.position)
-        elseif isUpTunnel(tunnel) then
-            return surface.find_entity("down-tunnel", tunnel.position)
-        end
-    end
-
-    return false
 end
 
 -- ########################################################################
