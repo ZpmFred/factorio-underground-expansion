@@ -12,7 +12,7 @@ data:extend({{
     collision_box = {{-0.5, -0.5}, {0.5, 0.5}},
     selection_box = {{-0.5, -0.5}, {0.5, 0.5}},
 	minable = {
-		mining_time = 0.1
+		mining_time = 1
 	},
 	resistances = {
 		{

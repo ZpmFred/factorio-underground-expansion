@@ -497,8 +497,6 @@ function undergroundChunkGenerationEvent(event)
     -- generating only underground surfaces
     if not isSurfaceUnderground(event.surface) then return end
 
-    game.print("chunkGenerate " .. Area.tostring(event.area))
-
     -- clear all the entity
     for i, entity in ipairs(event.surface.find_entities(event.area)) do
         if entity.type ~= "player" then
