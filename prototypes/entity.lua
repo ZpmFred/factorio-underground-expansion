@@ -8,8 +8,19 @@ data:extend({{
 		height = 32,
 		shift = {0, 0}
 	},
-	max_health = 150,
-    collision_box = {{-0.5, -0.5}, {0.5, 0.5}}
+	max_health = 50,
+    collision_box = {{-0.5, -0.5}, {0.5, 0.5}},
+    selection_box = {{-0.5, -0.5}, {0.5, 0.5}},
+	minable = {
+		mining_time = 0.1
+	},
+	resistances = {
+		{
+			type = "fire",
+			percent = 100
+		}
+	}
+
 }})
 
 local downTunnel = table.deepcopy(data.raw["lamp"]["small-lamp"])

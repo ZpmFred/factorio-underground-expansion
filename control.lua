@@ -53,6 +53,7 @@ end)
 -- ON PRE PLAYER MINED ITEM
 script.on_event(defines.events.on_preplayer_mined_item, function(event)
     onTunnelPickup(event.entity)
+    onBorderRockDestroyed(event.entity)
 end)
 
 -- ON CHUNK GENERATED
