@@ -11,8 +11,9 @@ if not global.underexp then global.undexexp = {} end
 
 if not underexp then underexp = {} end
 underexp.surfaceNameSeparator = "-underground-expansion-"
-underexp.tunnelCaveSize = 1 -- number of tile to le left top botom and right ex: tunnelCaveSize = 2 ==> cave = 5X5
+underexp.tunnelCaveSize = 4 -- number of tile to le left top botom and right ex: tunnelCaveSize = 2 ==> cave = 5X5
 
+-- CUSTOM CONTROL PLAYER ENTER TUNNEL
 script.on_event("enter-tunnel", function(event)
     local player = game.players[event.player_index]
     local entity = player.selected
@@ -35,15 +36,25 @@ script.on_event("enter-tunnel", function(event)
     end
 end)
 
+-- ON BUILD
 script.on_event(defines.events.on_built_entity, function(event)
-    game.players[event.player_index].print(Position.tostring(event.created_entity.position))
-
     if not checkForNewTunnel(event.created_entity) then
         local player = game.players[event.player_index]
         player.print("can't place upper tunnel when not underground")
     end
 end)
 
+-- ON ENTITY DIED
+script.on_event(defines.events.on_entity_died, function(event)
+    onTunnelDestroyed(event.entity)
+end)
+
+-- ON PRE PLAYER MINED ITEM
+script.on_event(defines.events.on_preplayer_mined_item, function(event)
+    onTunnelPickup(event.entity)
+end)
+
+-- ON CHUNK GENERATED
 script.on_event(defines.events.on_chunk_generated, function(event)
     undergroundChunkGenerationEvent(event)
 end)
@@ -55,41 +66,25 @@ end)
 -- ######################### TUNNELS CONTROLS #############################
 -- ########################################################################
 
--- on tunnel pickup repome counterpart tunnel
+-- on tunnel pickup remove counterpart tunnel
 function onTunnelPickup(tunnel)
     if isTunnel(tunnel) and isTunnelCounterpartGenerated(tunnel) then
         local counterpartSurface = getTunnelCounterpartSurface(tunnel)
+        local counterpartTunnel = counterpartSurface.find_entity(getCounterpartTunnelName(tunnel), tunnel.position)
+
+        if counterpartTunnel then 
+            counterpartTunnel.destroy()
+        end
     end
-
 end
 
+function onTunnelDestroyed(tunnel) 
+    if isTunnel(tunnel) and isTunnelCounterpartGenerated(tunnel) then
+        local counterpartSurface = getTunnelCounterpartSurface(tunnel)
+        local counterpartTunnel = counterpartSurface.find_entity(getCounterpartTunnelName(tunnel), tunnel.position)
 
--- ########################################################################
--- ######################### TUNNELS UTILS ################################
--- ########################################################################
-
-function isDownTunnel(entity)
-    return entity.name == "down-tunnel"
-end
-
-function isUpTunnel(entity)
-    return entity.name == "up-tunnel"
-end
-
-function isTunnel(entity)
-    return isDownTunnel(entity) or isUpTunnel(entity)
-end
-
-function checkForNewTunnel(entity)
-    if isDownTunnel(entity) then
-        generateBelowChunkFromDownTunnel(entity)
-        return true
-    elseif isUpTunnel(entity) then
-        if isSurfaceUnderground(entity.surface) then 
-            generateAboveChunkFromUpTunnel(entity)
-            return true
-        else
-            return false
+        if counterpartTunnel then 
+            counterpartTunnel.die()
         end
     end
 end
@@ -120,12 +115,7 @@ function createTunnelCounterpart(tunnel)
     local surface = getTunnelCounterpartSurface(tunnel)
 
     if surface and not isTunnelCounterpartGenerated(tunnel) then
-        local tunnelEntityName = nil
-        if isDownTunnel(tunnel) then
-            tunnelEntityName = "up-tunnel"
-        elseif isUpTunnel(tunnel) then
-            tunnelEntityName = "down-tunnel"
-        end
+        local tunnelEntityName = getCounterpartTunnelName(tunnel)
 
         if isSurfaceUnderground(surface) then
             createTunnelCave(surface, tunnel.position)
@@ -138,6 +128,46 @@ function createTunnelCounterpart(tunnel)
     end
 
     return true
+end
+
+-- ########################################################################
+-- ######################### TUNNELS UTILS ################################
+-- ########################################################################
+
+function isDownTunnel(entity)
+    return entity.name == "down-tunnel"
+end
+
+function isUpTunnel(entity)
+    return entity.name == "up-tunnel"
+end
+
+function isTunnel(entity)
+    return isDownTunnel(entity) or isUpTunnel(entity)
+end
+
+function getCounterpartTunnelName(tunnel)
+    if isDownTunnel(tunnel) then
+        return "up-tunnel"
+    elseif isUpTunnel(tunnel) then
+        return "down-tunnel"
+    end
+
+    return nil 
+end
+
+function checkForNewTunnel(entity)
+    if isDownTunnel(entity) then
+        generateBelowChunkFromDownTunnel(entity)
+        return true
+    elseif isUpTunnel(entity) then
+        if isSurfaceUnderground(entity.surface) then 
+            generateAboveChunkFromUpTunnel(entity)
+            return true
+        else
+            return false
+        end
+    end
 end
 
 -- check if the other side chunks of the tunnel has been generated 
@@ -240,14 +270,7 @@ function createTunnelCave(surface, position)
             if table.any(tunnelCaveDescriptorList, function (v, k, pos) return isTunnelCaveDescriptorRockTile(v, pos) end, pos) then
                 table.insert(tiles, {name="underground-rock", position=pos})
             end
-        end
-    end
-    surface.set_tiles(tiles)
 
-    -- generate cave entity
-    for x=caveDescriptor.outerCaveArea.left_top.x, caveDescriptor.outerCaveArea.right_bottom.x do
-        for y=caveDescriptor.outerCaveArea.left_top.y, caveDescriptor.outerCaveArea.right_bottom.y do
-            local pos = {x, y}
             local entity = surface.find_entity("border-rock", pos)
             local isRockBorder = false
             local isRockTileAlone = false
@@ -266,19 +289,20 @@ function createTunnelCave(surface, position)
             end
 
             -- rock creation
-            if isRockBorder and not isRockTileAlone then
+            if isRockBorder and not isRockTileAlone and isTileAdjacentToOutOfMap(surface, pos) then
                 -- game.print("rock: " .. Position.tostring(pos))
                 -- game.print(Area.tostring(event.area))
                 surface.create_entity{name = "border-rock", position = pos, force = "neutral"}
-            else
-                if entity and isRockTileAlone then
-                    --entity.destroy()
-                end
             end
-
         end
     end
+    surface.set_tiles(tiles)
+end
 
+function isTileAdjacentToOutOfMap(surface, position) 
+    local adjacentTilePosList = Tile.adjacent(surface, position, true, "out-of-map")
+
+    return #adjacentTilePosList > 0
 end
 
 -- ########################################################################
