@@ -47,6 +47,7 @@ end)
 -- ON ENTITY DIED
 script.on_event(defines.events.on_entity_died, function(event)
     onTunnelDestroyed(event.entity)
+    onBorderRockDestroyed(event.entity)
 end)
 
 -- ON PRE PLAYER MINED ITEM
@@ -61,6 +62,27 @@ end)
 
 
 
+-- ########################################################################
+-- ######################### BORDER ROCK CONTROLS #########################
+-- ########################################################################
+
+function onBorderRockDestroyed(rock)
+    if isBorderRock(rock) then
+        local adjacentOutOfMap = Tile.adjacent(rock.surface, rock.position, true, "out-of-map")
+        
+        local tiles = {}
+        for i, outPos in ipairs(adjacentOutOfMap) do
+            table.insert(tiles, {name="underground-rock", position=outPos})
+            rock.surface.create_entity{name = "border-rock", position = outPos, force = "neutral"}
+        end
+        rock.surface.set_tiles(tiles)
+
+    end
+end
+
+function isBorderRock(entity)
+    return entity.name == "border-rock"
+end
 
 -- ########################################################################
 -- ######################### TUNNELS CONTROLS #############################
