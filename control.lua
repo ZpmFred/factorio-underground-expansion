@@ -18,12 +18,12 @@ script.on_event("enter-tunnel", function(event)
     local player = game.players[event.player_index]
     local entity = player.selected
 
-    player.print("---")
-    player.print(Position.tostring(player.position))
-    player.print(Position.tostring(entity.position))
-    player.print("---")
+    -- player.print("---")
+    -- player.print(Position.tostring(player.position))
+    -- player.print(Position.tostring(entity.position))
+    -- player.print("---")
 
-    if entity and isTunnel(entity) and Position.distance(entity.position, player.position) < 3 then
+    if entity and player and isTunnel(entity) and Position.distance(entity.position, player.position) < 3 then
         if isTunnelOutputAreaGenerated(entity) then
             if createTunnelCounterpart(entity) then
                 player.teleport(player.position, getTunnelCounterpartSurface(entity))
@@ -398,7 +398,7 @@ function getAboveSurfaceName(surfaceName)
 
         -- deep in the underground
         if layerNumber > 1 then
-            return getUndergroundSurfaceNameForLayer(surfaceName, getUndergroundSurfaceNameLayerNumber(surface) - 1)
+            return getUndergroundSurfaceNameForLayer(surfaceName, getUndergroundSurfaceNameLayerNumber(surfaceName) - 1)
         -- layer just below the surface
         else
             return getMainSurfaceName(surfaceName)
@@ -411,7 +411,7 @@ end
 -- get the below surface name
 function getBelowSurfaceName(surfaceName)
     if isUndergroundSurfaceName(surfaceName) then
-        return getUndergroundSurfaceNameForLayer(surfaceName, getUndergroundSurfaceNameLayerNumber(surface) + 1)
+        return getUndergroundSurfaceNameForLayer(surfaceName, getUndergroundSurfaceNameLayerNumber(surfaceName) + 1)
     else
         return getUndergroundSurfaceNameForLayer(surfaceName, 1)
     end
@@ -430,13 +430,13 @@ function getTunnelCaveDescriptorOverlappingArea(surfaceName, area)
     for i, tunnel in ipairs(Surface.find_all_entities({name = "down-tunnel", surface = surfacename, area = tunnelSearchArea})) do
         local tunnelCaveDescriptor = getTunnelCaveDescriptor(tunnel.position)
         tunnelCaveDescriptor.isDownTunnel = true
-        table.insert(tunnelCaveDescriptorList, getTunnelCaveDescriptor(tunnel.position))
+        table.insert(tunnelCaveDescriptorList, tunnelCaveDescriptor)
     end
 
     for i, tunnel in ipairs(Surface.find_all_entities({name = "up-tunnel", surface = surfacename, area = tunnelSearchArea})) do
         local tunnelCaveDescriptor = getTunnelCaveDescriptor(tunnel.position)
         tunnelCaveDescriptor.isDownTunnel = false
-        table.insert(tunnelCaveDescriptorList, getTunnelCaveDescriptor(tunnel.position))
+        table.insert(tunnelCaveDescriptorList, tunnelCaveDescriptor)
     end
 
     return tunnelCaveDescriptorList
@@ -520,6 +520,7 @@ function getAboveAndBelowTunnelCaveDescriptorOverlappingArea(currentSurface, are
     local aboveSurface = getAboveSurface(currentSurface)
     local belowSurface = getBelowSurface(currentSurface)
     local tunnelCaveDescriptorList = {}
+
 
     -- for the above surface only keep down tunnels
     if aboveSurface then
