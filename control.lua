@@ -6,12 +6,16 @@ require("stdlib.area.tile")
 require("stdlib.area.chunk")
 require("stdlib.surface")
 
-if not global then global = {} end
-if not global.underexp then global.undexexp = {} end
-
 if not underexp then underexp = {} end
 underexp.surfaceNameSeparator = "-underground-expansion-"
 underexp.tunnelCaveSize = 4 -- number of tile to le left top botom and right ex: tunnelCaveSize = 2 ==> cave = 5X5
+
+-- INIT
+script.on_init( function()
+    if not global then global = {} end
+    if not global.underexp then global.underexp = {} end
+    if not global.underexp.tunnels then global.underexp.tunnels = {} end
+end)
 
 -- CUSTOM CONTROL PLAYER ENTER TUNNEL
 script.on_event("enter-tunnel", function(event)
@@ -61,6 +65,13 @@ script.on_event(defines.events.on_chunk_generated, function(event)
     undergroundChunkGenerationEvent(event)
 end)
 
+-- ON TICK
+script.on_event(defines.events.on_tick, function(event)
+    if (game.tick % 60 == 0) then
+        propagateTunnelPollutionUp()
+    end
+end)
+
 
 
 -- ########################################################################
@@ -89,25 +100,50 @@ end
 -- ######################### TUNNELS CONTROLS #############################
 -- ########################################################################
 
+-- propagate chunk pollution up
+function propagateTunnelPollutionUp()
+    for sti, surfaceTunnelName in pairs(global.underexp.tunnels) do
+        for ti, tunnel in ipairs(surfaceTunnelName) do
+            if isUpTunnel(tunnel) then
+                local counterpartTunnel = getCounterpartTunnel(tunnel)
+                local undergroundPollution = tunnel.surface.get_pollution(tunnel.position)
+
+                -- transfer polution
+                counterpartTunnel.surface.pollute(counterpartTunnel.position, undergroundPollution)
+                tunnel.surface.pollute(tunnel.position, -undergroundPollution)
+            end
+        end 
+    end
+end
+
 -- on tunnel pickup remove counterpart tunnel
 function onTunnelPickup(tunnel)
-    if isTunnel(tunnel) and isTunnelCounterpartGenerated(tunnel) then
-        local counterpartSurface = getTunnelCounterpartSurface(tunnel)
-        local counterpartTunnel = counterpartSurface.find_entity(getCounterpartTunnelName(tunnel), tunnel.position)
+    if isTunnel(tunnel) then
+        removeTunnelFromGlobalList(tunnel)
+        
+        if isTunnelCounterpartGenerated(tunnel) then
+            local counterpartTunnel = getCounterpartTunnel(tunnel)
 
-        if counterpartTunnel then 
-            counterpartTunnel.destroy()
+            if counterpartTunnel then 
+                removeTunnelFromGlobalList(counterpartTunnel)
+                counterpartTunnel.destroy()
+            end
         end
     end
 end
 
+-- when a tunnel is destroyed
 function onTunnelDestroyed(tunnel) 
-    if isTunnel(tunnel) and isTunnelCounterpartGenerated(tunnel) then
-        local counterpartSurface = getTunnelCounterpartSurface(tunnel)
-        local counterpartTunnel = counterpartSurface.find_entity(getCounterpartTunnelName(tunnel), tunnel.position)
+    if isTunnel(tunnel) then
+        removeTunnelFromGlobalList(tunnel)
 
-        if counterpartTunnel then 
-            counterpartTunnel.die()
+        if isTunnelCounterpartGenerated(tunnel) then
+            local counterpartTunnel = getCounterpartTunnel(tunnel)
+
+            if counterpartTunnel then 
+                removeTunnelFromGlobalList(counterpartTunnel)
+                counterpartTunnel.die()
+            end
         end
     end
 end
@@ -145,6 +181,7 @@ function createTunnelCounterpart(tunnel)
         end
         if surface.can_place_entity{name = tunnelEntityName, position = tunnel.position, force = "player"} then
             local tunnel = surface.create_entity{name = tunnelEntityName, position = tunnel.position, force = "player"}
+            addTunnelToGlobalList(tunnel)
         else 
             return false
         end
@@ -179,11 +216,18 @@ function getCounterpartTunnelName(tunnel)
     return nil 
 end
 
+function getCounterpartTunnel(tunnel)
+    local counterpartSurface = getTunnelCounterpartSurface(tunnel)
+    return counterpartSurface.find_entity(getCounterpartTunnelName(tunnel), tunnel.position)
+end
+
 function checkForNewTunnel(entity)
     if isDownTunnel(entity) then
+        addTunnelToGlobalList(entity)
         generateBelowChunkFromDownTunnel(entity)
         return true
     elseif isUpTunnel(entity) then
+        addTunnelToGlobalList(entity)
         if isSurfaceUnderground(entity.surface) then 
             generateAboveChunkFromUpTunnel(entity)
             return true
@@ -243,6 +287,26 @@ function isTunnelCounterpartGenerated(tunnel)
     end
 
     return false
+end
+
+-- add a tunnel to the global list of tunnel for the surface of the tunnel
+function addTunnelToGlobalList(tunnel)
+    if not global.underexp.tunnels[tunnel.surface.name] then 
+        global.underexp.tunnels[tunnel.surface.name] = {};
+    end
+    table.insert(global.underexp.tunnels[tunnel.surface.name], tunnel);
+end
+
+-- remove a tunnel from the global list of tunnel for the surface of the tunnel
+function removeTunnelFromGlobalList(tunnel)
+    if global.underexp.tunnels[tunnel.surface.name] then
+        for i, storedTunnel in ipairs(global.underexp.tunnels[tunnel.surface.name]) do
+            if storedTunnel == tunnel then
+                table.remove(global.underexp.tunnels[tunnel.surface.name], i)
+                break
+            end
+        end
+    end
 end
 
 -- ########################################################################
